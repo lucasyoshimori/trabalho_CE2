@@ -1,1 +1,34 @@
-
+ui <- shiny::fluidPage(
+  shiny::titlePanel("Stock Profitability Calculator"),
+  
+  shiny::sidebarLayout(
+    shiny::sidebarPanel(
+      shiny::numericInput("investment", "Initial Investment ($)", 1000),
+      shiny::numericInput("purchasePrice", "Purchase Price per Share ($)", 0),
+      shiny::numericInput("currentPrice", "Current Price per Share ($)", 0),
+      shiny::actionButton("calc", "Calculate Profit/Loss")
+    ),
+    shiny::mainPanel(
+      shiny::textOutput("result")
+    )
+  )
+)
+server <- function(input, output) {
+  shiny::observeEvent(input$calc, {
+    if (input$purchasePrice > 0) {
+      sharesBought <- input$investment / input$purchasePrice
+      currentValue <- sharesBought * input$currentPrice
+      profitLoss <- currentValue - input$investment
+      output$result <- shiny::renderText({ 
+        if (profitLoss >= 0) {
+          paste("Profit: $", round(profitLoss, 2))
+        } else {
+          paste("Loss: $", round(-profitLoss, 2))
+        }
+      })
+    } else {
+      output$result <- shiny::renderText({ "Purchase price per share must be greater than 0." })
+    }
+  })
+}
+shiny::shinyApp(ui = ui, server = server)
