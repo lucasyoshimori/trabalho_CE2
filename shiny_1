@@ -1,34 +1,51 @@
-ui <- shiny::fluidPage(
-  shiny::titlePanel("Stock Profitability Calculator"),
+library(shiny)
+
+ui <- fluidPage(
   
-  shiny::sidebarLayout(
-    shiny::sidebarPanel(
-      shiny::numericInput("investment", "Initial Investment ($)", 1000),
-      shiny::numericInput("purchasePrice", "Purchase Price per Share ($)", 0),
-      shiny::numericInput("currentPrice", "Current Price per Share ($)", 0),
-      shiny::actionButton("calc", "Calculate Profit/Loss")
+  titlePanel("Gráficos"),
+  
+  sidebarLayout(
+    sidebarPanel(
+      
+      checkboxGroupInput("in_cidade", label = h3('Unidades da federação'), 
+                  choices = sort( unique(dados$UF) ), 
+                  selected = 'ES'),
+      sliderInput("in_idade", label = h3("Idade de interesse"), min = 14, 
+                  max = 65, value = c(25,45))
     ),
-    shiny::mainPanel(
-      shiny::textOutput("result")
+    mainPanel(
+    plotOutput('grafico_principal'),
+    textOutput('renda_media'),
+    tags$head(tags$style("#renda_media { font-size: 20px; font-weight: bold; }"))
     )
   )
 )
-server <- function(input, output) {
-  shiny::observeEvent(input$calc, {
-    if (input$purchasePrice > 0) {
-      sharesBought <- input$investment / input$purchasePrice
-      currentValue <- sharesBought * input$currentPrice
-      profitLoss <- currentValue - input$investment
-      output$result <- shiny::renderText({ 
-        if (profitLoss >= 0) {
-          paste("Profit: $", round(profitLoss, 2))
-        } else {
-          paste("Loss: $", round(-profitLoss, 2))
-        }
-      })
-    } else {
-      output$result <- shiny::renderText({ "Purchase price per share must be greater than 0." })
-    }
+
+
+server <- function(input, output){
+  
+   
+  
+  output$grafico_principal <- renderPlot({
+     dados %>% filter(!is.na(faixa_renda)) %>%
+      filter(UF == input$in_cidade[1]| UF == input$in_cidade[2] | UF == input$in_cidade[3] | UF == input$in_cidade[4]) %>%
+      filter(idade >= input$in_idade[1] & idade <= input$in_idade[2]) %>%
+      ggplot() + aes(x = UF, fill = faixa_renda) + geom_bar(position = "dodge") + 
+      labs(title = "Renda por UF", y = '')
+  })
+  
+  output$renda_media <- renderText({
+    paste('Renda média = ',
+      dados %>% filter(!is.na(faixa_renda)) %>%
+      filter(UF == input$in_cidade[1]| UF == input$in_cidade[2] | UF == input$in_cidade[3] | UF == input$in_cidade[4]) %>%
+      filter(idade >= input$in_idade[1] & idade <= input$in_idade[2]) %>%
+      summarise('Renda Média' = round(mean(renda))), 'R$'
+    )
   })
 }
-shiny::shinyApp(ui = ui, server = server)
+
+
+
+
+
+shinyApp(ui = ui, server = server)
