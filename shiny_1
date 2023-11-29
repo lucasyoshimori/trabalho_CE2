@@ -1,47 +1,66 @@
 library(shiny)
+library(tidyverse)
+library(ggplot2)
 
 ui <- fluidPage(
   
   titlePanel("Gráficos"),
   
+## sidebarLayout serve para organizar a página de um jeito específico, mas exitem outras funções para organizar a página de outros jeitos
   sidebarLayout(
     sidebarPanel(
       
-      checkboxGroupInput("in_cidade", label = h3('Unidades da federação'), 
+##  função-Input: vai desde entrada de texto até barra numérica     
+      checkboxGroupInput(inputId = "in_cidade", label = h3('Unidades da federação'), 
                   choices = sort( unique(dados$UF) ), 
                   selected = 'ES'),
       sliderInput("in_idade", label = h3("Idade de interesse"), min = 14, 
-                  max = 65, value = c(25,45))
+                  max = 65, value = c(25,45)),
+      actionButton('botao_executar', h5('Executar'))
     ),
+
+## função-Output: vai desde de saída de texto até gáficos animados
     mainPanel(
     plotOutput('grafico_principal'),
     textOutput('renda_media'),
-    tags$head(tags$style("#renda_media { font-size: 20px; font-weight: bold; }"))
+    tags$head(tags$style("#renda_media { font-size: 20px; font-weight: bold; }")),
+    plotOutput('idade_uf')
     )
   )
 )
 
 
 server <- function(input, output){
+
+## eventReactive serve para recalcular a função a partir de um gatilho
+## não necessariamente precisamos retornar essa função como output na ui, aqui retornamos, para os filtro do input serem dinâmicos
   
-   
-  
-  output$grafico_principal <- renderPlot({
-     dados %>% filter(!is.na(faixa_renda)) %>%
+  dados2 <- eventReactive(input$botao_executar,{
+    dados %>% filter(!is.na(faixa_renda)) %>%
+      
+## [n] serve para acessar o enésimo elemento do input especificado
       filter(UF == input$in_cidade[1]| UF == input$in_cidade[2] | UF == input$in_cidade[3] | UF == input$in_cidade[4]) %>%
-      filter(idade >= input$in_idade[1] & idade <= input$in_idade[2]) %>%
+      filter(idade >= input$in_idade[1] & idade <= input$in_idade[2])
+  
+    }, ignoreNULL = F
+    )
+  
+## quando usamos a função eventReactive, devemos adicionar "()" depois de dados 2 quando formos utilizar  
+  output$grafico_principal <- renderPlot({
+     dados2() %>%
       ggplot() + aes(x = UF, fill = faixa_renda) + geom_bar(position = "dodge") + 
-      labs(title = "Renda por UF", y = '')
+      labs(title = "Renda por UF", y = '') + theme(plot.title = element_text(size = 30))
+
   })
   
   output$renda_media <- renderText({
     paste('Renda média = ',
-      dados %>% filter(!is.na(faixa_renda)) %>%
-      filter(UF == input$in_cidade[1]| UF == input$in_cidade[2] | UF == input$in_cidade[3] | UF == input$in_cidade[4]) %>%
-      filter(idade >= input$in_idade[1] & idade <= input$in_idade[2]) %>%
+      dados2() %>%
       summarise('Renda Média' = round(mean(renda))), 'R$'
     )
   })
+  
+
 }
 
 
