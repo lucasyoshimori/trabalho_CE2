@@ -1,1 +1,105 @@
+## Rentabilidade portfolio
+library(shiny)
+library(bslib)
 
+ui <- fluidPage(
+  theme = bslib::bs_theme(bootswatch = "darkly"),
+  titlePanel("Portfolio Profitability Calculator"),
+  
+  sidebarLayout(
+    sidebarPanel(
+      numericInput("numStocks", "Number of Stocks in Portfolio", 1, min = 1),
+      uiOutput("stockInputs"),
+      actionButton("calc", "Calculate Total Profit/Loss")
+    ),
+    mainPanel(
+      tableOutput("portfolioSummary")
+    )
+  )
+)
+server <- function(input, output, session) {
+  # Dynamic UI for stock inputs
+  output$stockInputs <- shiny::renderUI({
+    numStocks <- input$numStocks
+    lapply(1:numStocks, function(i) {
+      shiny::tagList(
+        shiny::textInput(paste0("stock", i), label = paste("Stock", i, "Symbol")),
+        shiny::numericInput(paste0("shares", i), "Number of Shares", 0),
+        shiny::numericInput(paste0("purchasePrice", i), "Purchase Price per Share ($)", 0),
+        shiny::numericInput(paste0("currentPrice", i), "Current Price per Share ($)", 0)
+      )
+    })
+  })
+  
+  # Calculating total profitability
+  observeEvent(input$calc, {
+    totalProfitLoss <- 0
+    for (i in 1:input$numStocks) {
+      shares <- input[[paste0("shares", i)]]
+      purchasePrice <- input[[paste0("purchasePrice", i)]]
+      currentPrice <- input[[paste0("currentPrice", i)]]
+      totalProfitLoss <- totalProfitLoss + (shares * (currentPrice - purchasePrice))
+    }
+    
+    # Output the result
+    output$portfolioSummary <- shiny::renderTable({
+      data.frame(
+        "Total Profit/Loss" = totalProfitLoss
+      )
+    })
+  })
+}
+shiny::shinyApp(ui = ui, server = server)
+
+
+## Mapas
+library(tidyverse)
+library(shiny)
+library(ggplot2)
+library(geobr)
+
+ui <- fluidPage(
+  titlePanel("Mapas com Geobr"),
+  
+  sidebarLayout(
+    sidebarPanel(
+      selectInput("regionType", "Choose Region Type:", 
+                  choices = c("Biome", "State", "Indigenous Land", "Amazon")),
+      actionButton("updateMap", "Update Map")
+    ),
+    mainPanel(
+      plotOutput("map")
+    )
+  )
+)
+
+
+server <- function(input, output) {
+  
+  render_map_data <- eventReactive(input$updateMap, {
+    switch(input$regionType,
+           "Biome" = {
+             map_data <- geobr::read_biomes()
+             ggplot(map_data) + geom_sf(aes(fill = name_biome), color = NA) + scale_fill_viridis_d()
+           },
+           "State" = {
+             map_data <- geobr::read_state(code_state = "all")
+             ggplot(map_data) + geom_sf(aes(fill = name_state), color = NA) + scale_fill_viridis_d()
+           },
+           "Indigenous Land" = {
+             map_data <- geobr::read_indigenous_land()
+             ggplot(map_data) + geom_sf(color = NA) + scale_fill_viridis_d()
+           },
+           "Amazon" = {
+             map_data <- geobr::read_amazon()
+             ggplot(map_data) + geom_sf(color = NA) + scale_fill_viridis_d()
+           }
+    ) + theme_minimal() + labs(fill = input$regionType, title = paste("Map of Brazil Colored by", input$regionType))
+  })
+  
+  output$map <- renderPlot({
+    render_map_data()
+  })
+}
+
+shinyApp(ui = ui, server = server)
